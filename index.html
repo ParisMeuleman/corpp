@@ -1506,8 +1506,8 @@ leakage is voluntary, not accidental.</p>
    <p>To that end, this proposal does three things:</p>
    <ol>
     <li data-md>
-     <p>It introduces a new <code>cross-site</code> value for the <a data-link-type="http-header" href="https://fetch.spec.whatwg.org/#http-cross-origin-resource-policy" id="ref-for-http-cross-origin-resource-policy"><code>Cross-Origin-Resource-Policy</code></a> HTTP response header, which constitutes an explicit declaration that a given resource may be
-embedded in cross-site contexts.</p>
+     <p>It introduces a new <code>cross-origin</code> value for the <a data-link-type="http-header" href="https://fetch.spec.whatwg.org/#http-cross-origin-resource-policy" id="ref-for-http-cross-origin-resource-policy"><code>Cross-Origin-Resource-Policy</code></a> HTTP response header, which constitutes an explicit declaration that a given resource may be
+embedded in cross-origin contexts.</p>
     <li data-md>
      <p>It introduces a new <code>Cross-Origin-Embedder-Policy</code> header which shifts the default behavior for
 resources loaded in a given context to an opt-in model, in which cross-origin responses must
@@ -1725,7 +1725,7 @@ appropriate:</p>
 to incoming responses. To do so, Fetch is patched as follows:</p>
    <ol>
     <li data-md>
-     <p>The <code>Cross-Origin-Resource-Policy</code> grammar is extended to include a "<code>cross-site</code>" value.</p>
+     <p>The <code>Cross-Origin-Resource-Policy</code> grammar is extended to include a "<code>cross-origin</code>" value.</p>
     <li data-md>
      <p>The <a data-link-type="abstract-op" href="#abstract-opdef-cross-origin-resource-policy-check" id="ref-for-abstract-opdef-cross-origin-resource-policy-check">cross-origin resource policy check</a> is rewritten to take the <a data-link-type="dfn" href="#embedder-policy" id="ref-for-embedder-policy⑥">embedder policy</a> into
 account, and to cover some <a data-link-type="dfn" href="https://fetch.spec.whatwg.org/#navigation-request" id="ref-for-navigation-request①">navigation requests</a> in addition to <code>no-cors</code> requests.</p>
