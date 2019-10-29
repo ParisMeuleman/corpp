@@ -52,10 +52,10 @@ urlPrefix: https://tools.ietf.org/html/draft-ietf-httpbis-header-structure; spec
     for: structured header
         type: dfn
             text: dictionary; url: #section-3.1
-            text: token; url: #section-3.9
-            text: boolean; url: #section-3.11
+            text: token; url: #section-3.7
+            text: boolean; url: #section-3.9
     type: grammar
-        text: sh-token; url: #section-3.9
+        text: sh-token; url: #section-3.7
     type: abstract-op
         text: serialize Structured Header; url: #section-4.1
         text: Structured Header parsing algorithm; url: #section-4.2.7
