@@ -451,38 +451,33 @@ Opener Policy {#section-opener-policy}
 The Opener Policy portion of this proposal aims to ensure that a top-level document has control over
 the [=browsing context group=] it occupies in relation to a document that caused it to be opened, or
 to a document that it opens. In particular, it allows a document to assert that it refuses to join a
-[=browsing context group=] that includes cross-origin (or cross-site) documents.
+[=browsing context group=] that includes cross-origin documents.
 
 The `Cross-Origin-Opener-Policy` HTTP Response Header {#COOP}
 -------------------------------------------------------------
 
 The <dfn http-header>`Cross-Origin-Opener-Policy`</dfn> HTTP response header field allows a
-server to declare an cross-origin opener policy for a given document. It is a [=Structured Header=]
-whose value MUST be a [=structured header/item=]. [[!I-D.ietf-httpbis-header-structure]] Its
+server to declare a cross-origin opener policy for a given document. It is a [=Structured Header=]
+whose value MUST be a [=structured header/token=]. [[!I-D.ietf-httpbis-header-structure]] Its
 ABNF is:
 
 ```
-Cross-Origin-Opener-Policy = sh-item
+Cross-Origin-Opener-Policy = sh-token
 ```
 
-There are currently three valid item values: "`same-origin`", "`same-site`" and "`unsafe-inherit`".
-The "`same-origin`" and "`same-site`" values MAY have a "`unsafe-allow-outgoing`"
-[=structured header/parameter=].
+There are currently three valid token values: "`same-origin`", "`unsafe-same-origin-allow-outgoing`" and "`unsafe-none`".
 
 In order to support forward-compatibility with as-yet-unknown request types, user agents MUST ignore
-this header if it contains an unknown item or parameter. Likewise, user agents MUST ignore this
-header if the value cannot be parsed as a <a grammar>`sh-item`</a>.
-
-Detailed parsing requirements can be found in [[#COOP-parsing]].
-
+this header if it contains an invalid value. Likewise, user agents MUST ignore this
+header if the value cannot be parsed as a <a grammar>`sh-token`</a>.
 
 ### Parsing ### {#COOP-parsing}
 
 <div algorithm="parsing the COOP header">
 To <dfn abstract-op local-lt="parse COOP header">obtain a response's opener policy</dfn> given a
-[=response=] (|response|) and an [=/opener policy=] (|initiator|):
+[=response=] (|response|):
 
-1.  Let |policy| be an [=/opener policy=] whose value is `null`.
+1.  Let |policy| be an [=/opener policy=] with an [=opener policy/enforcement=] of `none` and a [=opener policy/coep=] of false).
 
 2.  Let |header| be the result of [=header list/getting=] `Cross-Origin-Opener-Policy` from
     |response|'s [=response/header list=].
@@ -493,29 +488,19 @@ To <dfn abstract-op local-lt="parse COOP header">obtain a response's opener poli
         with <var ignore>input_bytes</var> set to |header|, and <var ignore>header_type</var> set
         to "`item`".
 
-        If parsing fails, return `null`.
-
-    2.  Switch on |parsed policy|'s value:
-
+    2.  If parsing succeeds, Switch on |parsed policy|'s value:
         :   "`same-origin`"
-        :   "`same-site`"
-        ::  1.  If |parsed policy|'s value has a parameter whose key is not
-                "`unsafe-allow-outgoing`", return `null`.
-
-            2.  Let |unsafe-allow-outgoing| be true if |parsed policy|'s value has a parameter whose
-                key is "`unsafe-allow-outgoing`", and false otherwise.
-
-            3.  Set |policy| to a [=struct=] whose [=opener policy/sameness=] is |parsed policy|'s
-                value, and whose [=opener policy/unsafe-allow-outgoing=] is |unsafe-allow-outgoing|.
-
-        :   "`unsafe-inherit`"
-        ::  1.  If |parsed policy|'s value has any parameters, return `null`.
-            2.  Return |initiator|.
-
+        ::  1. Set |policy|'s [=opener policy/enforcement=] to `same-origin`.
+        :   "`unsafe-same-origin-allow-outgoing`"
+        ::  1. Set |policy|'s [=opener policy/enforcement=] to `same-origin-allow-outgoing`.
+        :   "`unsafe-none`"
+        ::  Do nothing
         :   Otherwise
-        ::  Return `null`.
+        ::  Do nothing
 
 4.  Return |policy|.
+
+ISSUE:  TODO(pmeuleman) do we include COEP in the COOP object as suggested in gist.github.com/annevk/6f2dd8c79c77123f39797f6bdac43f3e
 
 <div class="note">
 Note: This fails open (by defaulting to `null`) in the presence of a header that cannot be
@@ -536,30 +521,18 @@ multiple instances of the `Cross-Origin-Opener-Policy` header present in a given
     </tr>
     <tr>
       <td>`same-origin`</td>
-      <td>(`same-origin`, false)</td>
+      <td>(false)</td>
     </tr>
     <tr>
-      <td>`same-site`</td>
-      <td>(`same-site`, false)</td>
+      <td>`unsafe-same-origin-allow-outgoing`</td>
+      <td>(true)</td>
     </tr>
     <tr>
-      <td>`same-origin; unsafe-allow-outgoing`</td>
-      <td>(`same-origin`, true)</td>
-    </tr>
-    <tr>
-      <td>`same-site; unsafe-allow-outgoing`</td>
-      <td>(`same-site`, true)</td>
+      <td>`unsafe-none`</td>
+      <td>`null`</td>
     </tr>
     <tr>
       <td>`unknown-value`</td>
-      <td>`null`</td>
-    </tr>
-    <tr>
-      <td>`same-origin, same-site`</td>
-      <td>`null`</td>
-    </tr>
-    <tr>
-      <td>`same-origin; unknown-paramter`</td>
       <td>`null`</td>
     </tr>
   </tbody>
@@ -567,6 +540,22 @@ multiple instances of the `Cross-Origin-Opener-Policy` header present in a given
 </div>
 </div>
 
+### Matching cross-origin opener policies ### {#COOP-matching}
+
+<div algorithm="Matching COOP">
+To <dfn abstract-op local-lt="match COOP header">match opener policies</dfn>, given |policyA|, |originA|, |policyB|, and |originB|:
+
+1.  If |policyA| is null and |policyB| is null, return true.
+
+2.  If |policyA| or |policyB| is null, return false.
+
+3.  If |policyA|'s [=opener policy/unsafe-allow-outgoing=] is |policyB|'s [=opener policy/unsafe-allow-outgoing=], and |originA| is same origin with |originB|, return true.
+
+4. Return false.
+
+ISSUE: TODO(pmeuleman) what about COEP? checked here or not?
+
+</div>
 
 Integration with HTML {#COOP-integration-html}
 ---------------------
@@ -577,13 +566,11 @@ restrictions it asserts. Likewise, user agents MUST also take into account the o
 asserted by the document's opener, ensuring that they're properly imposed as well. To do
 so, HTML is patched as follows:
 
-1.  An <dfn>opener policy</dfn> is defined as either `null`, or a [=struct=] consisting of an
-    <dfn for="opener policy">sameness</dfn> [=string=] whose value is either "`same-origin`" or
-    "`same-site`", and an <dfn for="opener policy">unsafe-allow-outgoing</dfn>
-    [=/boolean=]. Unless otherwise specified, [=/opener policies=] are `null`.
+1.  An <dfn>opener policy</dfn> is defined as a [=struct=] consisting of an <dfn>enforcement</dfn>
+    [=/string=] with the following values "`none`", "`cross-origin`", and "`cross-origin-allow-outgoing`" and a <dfn for="coep">cross-origin embedder-policy</dfn> [=/boolean=]. Unless otherwise specified, [=/opener policies=] are "`none`", false.
 
 2.  {{Document}} objects are given an <dfn for="document">opener policy</dfn> property, whose value
-    is an [=/opener policy=] defaulting to `null`.
+    is an [=/opener policy=] defaulting to "`none`", false.
 
     ISSUE: It seems as though we can avoid giving either dedicated or shared workers an opener
     policy. We might, however, need to hold such a policy on service workers in order to deal with
@@ -598,6 +585,8 @@ so, HTML is patched as follows:
     >      [=document/opener policy=] to a copy of <var ignore>creator</var>'s
     >      [=document/opener policy=].
 
+    ISSUE: creator's [=document/opener policy=] is not defined.
+
 4.  The [$initialize the Document object$] algorithm sets the [=document/opener policy=] for
     {{Document}}s to which a [=browsing context=] is navigated by adding a new step directly after
     Referrer Policy is initialized in step 6:
@@ -606,44 +595,55 @@ so, HTML is patched as follows:
     >     [$initialize a document's opener policy from a response$] on <var ignore>document</var>
     >     and <var ignore>response</var>.
 
-5.  The [$process a navigate response$] algorithm checks that documents nested in a `require-corp`
-    context themselves positively assert `require-corp` by adding a new condition to the list in
-    step 1:
-
-    > *   The [$process navigation response|check a navigation response's adherence to its
-    >     embedder's policy$] algorithm returns "`Blocked`" when executed upon
-    >     <var ignore>response</var> and <var ignore>browsingContext</var>.
+5.  
+    ISSUE: Add text for BC change
 
 ### Initializing a Document's opener policy ### {#initialize-coop}
 
 <div algorithm="to initialize a document's opener policy from a response">
-To <dfn abstract-op>initialize a document's opener policy from a response</dfn>, given a
-{{Document}} (|document|) and a [=response=] (|response|):
+To <dfn abstract-op>initialize a document's opener policy from a response</dfn>, given a [=response=] (|response|):
 
 1.  Let |policy| be the result of [$parse COOP header|obtaining a response's opener policy$] from
     |response|.
 
-2.  If |document| 
-
-2.  Let |response policy| be the result of [$parse COEP header|obtaining an embedder policy$] from
-    |response|.
-
-3.  Run the steps corresponding to the first matching statement:
-
-    :   |response|'s [=response/url=]'s [=url/scheme=] is a [=local scheme=]
-    :   |global| is a {{DedicatedWorkerGlobalScope}}:
-    ::  1.  For each of the items in |global|'s [=WorkerGlobalScope/owner set=]:
-    
-            1.  If the item's [=/embedder policy=] is "`require-corp`", set |policy| to
-                "`require-corp`".
-
-    :   |global| is a {{SharedWorkerGlobalScope}}:
-    :   |global| is a {{ServiceWorkerGlobalScope}}:
-    ::  1.   Set |policy| to |response policy|.
-
-4.  Set |global|'s [=WorkerGlobalScope/embedder policy=] to |policy|.
+2.  If |policy|'s [=/opener policy/enforcement=] is `same-origin` and |response|'s [=document/embedder policy=] is `require-corp`, set |policy|'s [=/opener policy/embedder policy=] to true.
 
 </div>
+
+### Process a navigation response ### {#COOP-navigating}
+
+<div algorithm="Navigating COOP">
+When <dfn abstract-op local-lt="navigate COOP header">navigating</dfn> from a document |doc| in a top-level browsing context |bc| to a response |response|
+
+1.  Let |currentCOOP| be |doc|'s cross-origin opener policy.
+
+2.  Let |currentOrigin| be |doc|'s origin.
+
+3.  Let |potentialCOOP| be the result of obtaining a cross-origin opener policy from |response|.
+
+4.  Let |potentialOrigin| be |response|'s URL's orgin. TODO(pmeuleman) CSP might make this opaque
+
+5.  If |bc|'s popup sandboxing flag set is not empty and |potentialCOOP| is non-null, then navigate |bc| to a network error and abort these steps.
+
+6.  If the result of [$Match COOP header|matching$] |currentCOOP|, |currentOrigin|, |potentialCOOP|, and |potentialOrigin| is false
+
+    If |doc| is not the initial about:blank document or |currentCOOP|'s [=opener policy/unsafe-allow-outgoing=] is false or |potentialCOOP| is non-null:
+    
+        1.  Create a new browsing context group, move loading of |response| to a new top-level browsing context |newTLBC| in that browsing context group.
+
+        2.  if |bc|'s popup sandboxing flag set is not empty:
+        
+            1.  Assert: |potentialCOOP| is null.
+
+            2.  Set |newTLBC|'s popup sandboxing flag set to |bc|'s popup sandboxing flag set.
+
+        3.  Discard |bc|. [Note: this does not close bc's browsing context group, except if it was the sole top-level browsing context in which case it could be collected.]
+
+  7.  Otherwise, [do the normal thing]
+
+</div>
+
+TODO(pmeuleman): Add section regarding JS API reflecting the isolation status github.com/whatwg/html/issues/4872
 
 Implementation Considerations {#impl-considerations}
 ====================================================
